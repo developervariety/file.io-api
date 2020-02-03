@@ -2,10 +2,11 @@ package src
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
+	"path"
 )
 
 // region " JSON structs "
@@ -17,47 +18,68 @@ type FileIO_Response struct {
 }
 // endregion
 
-func UploadFile(fileLocation string) FileIO_Response {
+func UploadFile(fileLocation string, expiration string) (string, error) {
 	data, err := os.Open(fileLocation)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer data.Close()
 
-	req, err := http.NewRequest("PUT", "https://file.io", data)
+	if expiration == "" {
+		expiration = "1w"
+	}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("https://file.io?expires=%s", expiration), data)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	contentType, err := GetFileContentType(data)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	req.Header.Set("Content-Type", contentType)
 
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	jsonResp := FileIO_Response{}
 	err = json.Unmarshal(body, &jsonResp)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
-	return jsonResp
+	return jsonResp.Link, nil
 }
 
-func DownloadFile(downloadLink string) {
-	// download file with provided file.io link
+func DownloadFile(downloadLink string) ([]byte, error) {
+	fileName := path.Base(downloadLink)
+	resp, err := http.Get(downloadLink)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	return body, nil
 }
 
 // https://golangcode.com/get-the-content-type-of-file/
