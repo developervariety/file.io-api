@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
 )
 
 // region " JSON structs "
@@ -61,24 +60,17 @@ func UploadFile(fileLocation string, expiration string) (string, error) {
 }
 
 func DownloadFile(downloadLink string) ([]byte, error) {
-	fileName := path.Base(downloadLink)
 	resp, err := http.Get(downloadLink)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	f, err := os.Create(fileName)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return body, nil
 }
 
